@@ -43,6 +43,49 @@ void setup(void) {
 void loop(void) {
     static constexpr const char* const wd[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
+    // シリアルモニタからの入力処理
+    if (Serial.available() > 0) {
+        String input = Serial.readStringUntil('\n');
+        input.trim();
+
+        if (input.equalsIgnoreCase("RESET")) {
+            Serial.println("Forcing NTP synchronization...");
+            syncNTP();
+        } else if (input.indexOf('/') > 0) { // 日付設定 (yy/mm/dd)
+            int year = input.substring(0, 2).toInt() + 2000; // 年 (20xx形式に変換)
+            int month = input.substring(3, 5).toInt();       // 月
+            int day = input.substring(6, 8).toInt();         // 日
+
+            // デバッグ出力
+            Serial.printf("Parsed Date - Year: %d, Month: %d, Day: %d\n", year, month, day);
+
+            if (year >= 2023 && year <= 2025 && month > 0 && month <= 12 && day > 0 && day <= 31) {
+                auto dt = StickCP2.Rtc.getDateTime();
+                StickCP2.Rtc.setDateTime({ { year, month, day }, { dt.time.hours, dt.time.minutes, dt.time.seconds } });
+                Serial.printf("Date set to: %04d/%02d/%02d\n", year, month, day);
+            } else {
+                Serial.println("Invalid date input. Please use 'yy/mm/dd' format with valid values.");
+            }
+        } else if (input.indexOf(':') > 0) { // 時刻設定 (hh:mm:ss)
+            int hour = input.substring(0, 2).toInt();        // 時
+            int minute = input.substring(3, 5).toInt();     // 分
+            int second = input.substring(6, 8).toInt();     // 秒
+
+            // デバッグ出力
+            Serial.printf("Parsed Time - Hour: %d, Minute: %d, Second: %d\n", hour, minute, second);
+
+            if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second < 60) {
+                auto dt = StickCP2.Rtc.getDateTime();
+                StickCP2.Rtc.setDateTime({ { dt.date.year, dt.date.month, dt.date.date }, { hour, minute, second } });
+                Serial.printf("Time set to: %02d:%02d:%02d\n", hour, minute, second);
+            } else {
+                Serial.println("Invalid time input. Please use 'hh:mm:ss' format with valid values.");
+            }
+        } else {
+            Serial.println("Invalid input. Use 'RESET', 'yy/mm/dd', or 'hh:mm:ss'.");
+        }
+    }
+
     // RTCの現在時刻を取得 (UTC)
     auto dt = StickCP2.Rtc.getDateTime();
 
@@ -136,3 +179,4 @@ void syncNTP() {
         Serial.println("\r\nWiFi Connection Failed.");
     }
 }
+
